@@ -53,33 +53,31 @@ export default function ConfirmScreen() {
     runOCR();
   }, [imageBase64]);
 
+  const confirmAnomaly = (warningMsg: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (typeof window !== 'undefined') {
+        const confirmed = window.confirm(`⚠️ 異常値の警告\n\n${warningMsg}\n\nこのまま保存してよろしいですか？`);
+        resolve(confirmed);
+      } else {
+        Alert.alert('⚠️ 異常値の警告', warningMsg, [
+          { text: 'キャンセル', style: 'cancel', onPress: () => resolve(false) },
+          { text: '保存する', style: 'destructive', onPress: () => resolve(true) }
+        ]);
+      }
+    });
+  };
+
   const handleSubmit = async () => {
     if (!readingValue) {
-      Alert.alert('入力エラー', 'メーター値を入力してください。');
+      if (typeof window !== 'undefined') window.alert('メーター値を入力してください。');
+      else Alert.alert('入力エラー', 'メーター値を入力してください。');
       return;
     }
 
     try {
       setLoading(true);
 
-      // 1. 画像のアップロード (Supabase Storage)
-      const fileName = `${Date.now()}.jpg`;
-      const filePath = `meters/${meterId}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('meter-photos')
-        .upload(filePath, decode(imageBase64!), {
-          contentType: 'image/jpeg',
-          upsert: true
-        });
-
-      if (uploadError) throw new Error('画像の保存に失敗しました');
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('meter-photos')
-        .getPublicUrl(filePath);
-
-      // 2. 前回の記録を取得
+      // 2. 前回の記録を取得 (画像をアップロードする前に異常値チェックを行う)
       const { data: prevReading } = await supabase
         .from('meter_readings')
         .select('*')
@@ -95,11 +93,50 @@ export default function ConfirmScreen() {
 
       if (prevVal !== null) {
         usageVal = currentVal - prevVal;
-        // 異常値判定 (逆転 または 200%増)
-        if (usageVal < 0 || (prevReading.usage_value && usageVal > prevReading.usage_value * 2)) {
+        // 異常値判定 (マイナス値、または前回使用量から±10%以上の差異)
+        if (usageVal < 0) {
           isAnomaly = true;
+        } else if (prevReading.usage_value !== null) {
+          const limitHigh = prevReading.usage_value * 1.1; // +10%
+          const limitLow = prevReading.usage_value * 0.9;  // -10%
+          if (usageVal > limitHigh || usageVal < limitLow) {
+            isAnomaly = true;
+          }
         }
       }
+
+      // 異常値の場合、保存前にユーザーに確認を求める
+      if (isAnomaly) {
+        const warningMsg = usageVal !== null && usageVal < 0
+          ? `メーター値が前回(${prevVal} m³)を下回っています。\n(現在の入力: ${currentVal} m³)`
+          : `今回の使用量(${usageVal} m³)が、前回の使用量(${prevReading.usage_value} m³)から10%以上変動しています。\n漏水や入力ミスの可能性があります。`;
+        
+        const continueSave = await confirmAnomaly(warningMsg);
+        if (!continueSave) {
+          setLoading(false);
+          return; // 保存を中断
+        }
+      }
+
+      // 1. 画像のアップロード (Supabase Storage)
+      const { format } = require('date-fns');
+      const dateStr = format(new Date(), 'yyyyMMdd_HHmmss');
+      const safeMeterName = meterName ? meterName.replace(/[/\\?%*:|"<>]/g, '_') : 'meter';
+      const fileName = `${safeMeterName}_${dateStr}.jpg`;
+      const filePath = `meters/${meterId}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('meter-photos')
+        .upload(filePath, decode(imageBase64!), {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+
+      if (uploadError) throw new Error('画像の保存に失敗しました');
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('meter-photos')
+        .getPublicUrl(filePath);
 
       // 3. データの保存
       const { error: insertError } = await supabase.from('meter_readings').insert({
@@ -118,16 +155,23 @@ export default function ConfirmScreen() {
 
       if (insertError) throw insertError;
 
-      Alert.alert('完了', '記録を保存しました。', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
-      ]);
+      if (typeof window !== 'undefined') {
+        window.alert('記録を保存しました。');
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('完了', '記録を保存しました。', [
+          { text: 'OK', onPress: () => router.replace('/(tabs)') }
+        ]);
+      }
     } catch (error: any) {
       console.error('Submit error:', error);
-      Alert.alert('保存エラー', error.message || 'データの保存に失敗しました。');
+      if (typeof window !== 'undefined') window.alert(error.message || 'データの保存に失敗しました。');
+      else Alert.alert('保存エラー', error.message || 'データの保存に失敗しました。');
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <KeyboardAvoidingView

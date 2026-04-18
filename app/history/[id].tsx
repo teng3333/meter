@@ -47,6 +47,8 @@ export default function HistoryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
     const fetchDetail = async () => {
       try {
@@ -79,8 +81,45 @@ export default function HistoryDetailScreen() {
       }
     };
 
+    const fetchRole = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user.id) {
+        const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+        if (data && data.role === 'admin') {
+          setIsAdmin(true);
+        }
+      }
+    };
+
     fetchDetail();
+    fetchRole();
   }, [id]);
+
+  const downloadImage = async () => {
+    if (!reading?.image_url) return;
+    
+    if (typeof document !== 'undefined') {
+      try {
+        const response = await fetch(reading.image_url);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        const dateStr = format(new Date(reading.read_at), 'yyyyMMdd_HHmm');
+        const safeMeterName = reading.meters.name.replace(/[/\\?%*:|"<>]/g, '_');
+        link.setAttribute('download', `${safeMeterName}_${dateStr}.jpg`);
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Image download failed:', error);
+        window.alert('画像のダウンロードに失敗しました。');
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -102,7 +141,7 @@ export default function HistoryDetailScreen() {
         />
         <LinearGradient
           colors={['rgba(15, 23, 42, 0.7)', 'transparent']}
-          className="absolute top-0 left-0 right-0 h-32 pt-16 px-6"
+          className="absolute top-0 left-0 right-0 h-32 pt-16 px-6 flex-row justify-between"
         >
           <TouchableOpacity 
             onPress={() => router.back()}
@@ -110,6 +149,15 @@ export default function HistoryDetailScreen() {
           >
             <Ionicons name="close" size={28} color="white" />
           </TouchableOpacity>
+
+          {typeof document !== 'undefined' && (
+            <TouchableOpacity 
+              onPress={downloadImage}
+              className="w-12 h-12 bg-black/30 rounded-full items-center justify-center backdrop-blur-md"
+            >
+              <Ionicons name="download" size={24} color="white" />
+            </TouchableOpacity>
+          )}
         </LinearGradient>
       </View>
 
@@ -181,12 +229,26 @@ export default function HistoryDetailScreen() {
         </View>
 
         {/* 下部ボタン */}
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="mt-8 mb-12 bg-slate-900 border border-slate-800 py-5 rounded-3xl items-center"
-        >
-          <Text className="text-white font-bold">一覧に戻る</Text>
-        </TouchableOpacity>
+        <View className="mt-8 mb-12 space-y-4">
+          {isAdmin && (
+            <TouchableOpacity
+              onPress={() => router.push(`/history/edit/${reading.id}`)}
+              className="bg-blue-600 py-4 rounded-3xl items-center shadow-lg shadow-blue-500/30"
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="pencil" size={18} color="white" />
+                <Text className="text-white font-bold ml-2 text-lg">データを修正する</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="bg-slate-900 border border-slate-800 py-4 rounded-3xl items-center"
+          >
+            <Text className="text-white font-bold">一覧に戻る</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );

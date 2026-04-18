@@ -77,6 +77,40 @@ export default function HistoryScreen() {
     fetchReadings();
   };
 
+  const downloadCSV = () => {
+    if (readings.length === 0) {
+      if (typeof window !== 'undefined') window.alert('ダウンロードするデータがありません。');
+      return;
+    }
+
+    const headers = ['日付', '拠点名', 'メーター名', '使用カテゴリ', 'メーター値(m3)', '使用量(m3)', 'ステータス'];
+    const csvRows = readings.map(r => {
+      const date = format(new Date(r.read_at), 'yyyy/MM/dd HH:mm');
+      const siteName = r.meters?.sites?.name || '';
+      const meterName = r.meters?.name || '';
+      const type = r.meters?.type === 'water_in' ? '上水' : '下水';
+      const val = r.reading_value ?? 0;
+      const usage = r.usage_value ?? '';
+      const status = r.is_anomaly ? '異常' : '正常';
+      return `"${date}","${siteName}","${meterName}","${type}","${val}","${usage}","${status}"`;
+    });
+
+    const csvContent = headers.map(h => `"${h}"`).join(',') + '\n' + csvRows.join('\n');
+    // Excelで文字化けしないようにBOM(Byte Order Mark)を付与
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    if (typeof document !== 'undefined') {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `meter_readings_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -94,10 +128,22 @@ export default function HistoryScreen() {
     >
       <LinearGradient
         colors={['#1e293b', '#0f172a']}
-        className="pt-16 pb-8 px-6 rounded-b-[40px]"
+        className="pt-16 pb-8 px-6 rounded-b-[40px] flex-row justify-between items-end"
       >
-        <Text className="text-slate-400 text-sm font-medium">点検の記録</Text>
-        <Text className="text-white text-3xl font-bold">履歴一覧</Text>
+        <View>
+          <Text className="text-slate-400 text-sm font-medium">点検の記録</Text>
+          <Text className="text-white text-3xl font-bold">履歴一覧</Text>
+        </View>
+
+        {readings.length > 0 && typeof document !== 'undefined' && (
+          <TouchableOpacity 
+            onPress={downloadCSV}
+            className="bg-blue-600/20 px-4 py-2 rounded-xl border border-blue-500/30 flex-row items-center"
+          >
+            <Ionicons name="download-outline" size={16} color="#60a5fa" />
+            <Text className="text-blue-400 font-bold ml-2 text-sm">CSV出力</Text>
+          </TouchableOpacity>
+        )}
       </LinearGradient>
 
       <View className="px-6 -mt-4 pb-12">
