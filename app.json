@@ -23,7 +23,15 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro",
+      "pwa": {
+        "name": "MeterSnap",
+        "shortName": "MeterSnap",
+        "description": "水道メーター管理アプリ",
+        "backgroundColor": "#0f172a",
+        "themeColor": "#3b82f6"
+      }
     },
     "plugins": [
       "expo-router",
@@ -38,7 +46,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

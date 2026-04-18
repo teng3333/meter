@@ -1,98 +1,144 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
+import { supabase } from '../../lib/supabase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
-
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+interface Site {
+  id: string;
+  name: string;
+  address: string;
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+export default function HomeScreen() {
+  const [sites, setSites] = useState<Site[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
+
+  const fetchSites = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sites')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setSites(data || []);
+    } catch (error) {
+      console.error('Error fetching sites:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSites();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchSites();
+  };
+
+  const handleSitePress = (siteId: string) => {
+    router.push({
+      pathname: '/record/select-meter',
+      params: { siteId },
+    });
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <View className="flex-1 bg-slate-950 items-center justify-center">
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      className="flex-1 bg-slate-950"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
+      }
+    >
+      <LinearGradient
+        colors={['#1e293b', '#0f172a']}
+        className="pt-16 pb-8 px-6 rounded-b-[40px]"
+      >
+        <View className="flex-row justify-between items-center mb-6">
+          <View>
+            <Text className="text-slate-400 text-sm font-medium">ようこそ</Text>
+            <Text className="text-white text-3xl font-bold">拠点一覧</Text>
+          </View>
+          <TouchableOpacity 
+            className="w-12 h-12 bg-slate-800 rounded-2xl items-center justify-center border border-slate-700"
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons name="person-outline" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <View className="bg-blue-600/20 border border-blue-500/30 rounded-2xl p-4 flex-row items-center">
+          <View className="w-10 h-10 bg-blue-500 rounded-xl items-center justify-center mr-4">
+            <Ionicons name="information-circle" size={24} color="white" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-blue-100 font-bold">本日の点検</Text>
+            <Text className="text-blue-200/70 text-xs">
+              記録対象の拠点を選択して開始してください
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View className="px-6 -mt-4 pb-12">
+        {sites.length === 0 ? (
+          <View className="bg-slate-900 border border-slate-800 rounded-3xl p-12 items-center mt-8">
+            <Ionicons name="business-outline" size={48} color="#475569" />
+            <Text className="text-slate-400 text-lg mt-4 text-center">
+              登録されている拠点がありません
+            </Text>
+            <Text className="text-slate-500 text-sm mt-2 text-center">
+              管理者に連絡して拠点を追加してください
+            </Text>
+          </View>
+        ) : (
+          sites.map((site) => (
+            <TouchableOpacity
+              key={site.id}
+              onPress={() => handleSitePress(site.id)}
+              activeOpacity={0.7}
+              className="mt-4"
+            >
+              <View className="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex-row items-center shadow-sm">
+                <View className="w-14 h-14 bg-slate-800 rounded-2xl items-center justify-center mr-4">
+                  <Ionicons name="location" size={28} color="#3b82f6" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white text-xl font-bold mb-1">
+                    {site.name}
+                  </Text>
+                  <Text className="text-slate-500 text-sm" numberOfLines={1}>
+                    {site.address || '住所未登録'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#475569" />
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
+}
