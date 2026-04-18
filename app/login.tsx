@@ -17,9 +17,17 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const showAlert = (title: string, message: string) => {
+    if (typeof window !== 'undefined') {
+      window.alert(`${title}\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('入力エラー', 'メールアドレスとパスワードを入力してください。');
+      showAlert('入力エラー', 'メールアドレスとパスワードを入力してください。');
       return;
     }
 
@@ -30,19 +38,19 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      Alert.alert('ログイン失敗', 'メールアドレスまたはパスワードが正しくありません。');
-      setLoading(false);
+      showAlert('ログイン失敗', 'メールアドレスまたはパスワードが正しくありません。');
     }
+    setLoading(false);
   };
 
   const handleSignUp = async () => {
     if (!email || !password) {
-      Alert.alert('入力エラー', 'メールアドレスとパスワードを入力してください。');
+      showAlert('入力エラー', 'メールアドレスとパスワードを入力してください。');
       return;
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data: { session }, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -53,9 +61,13 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      Alert.alert('登録失敗', error.message);
+      showAlert('登録失敗', error.message);
     } else {
-      Alert.alert('確認メール送信', '登録したメールアドレスに確認メールを送信しました。');
+      if (!session) {
+        showAlert('確認メール送信', '登録したメールアドレスに確認メールを送信しました。');
+      } else {
+        // セッションがあれば自動ログインとなる（自動画面遷移が行われる）
+      }
     }
     setLoading(false);
   };
