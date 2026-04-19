@@ -33,6 +33,7 @@ interface Reading {
 
 export default function HistoryScreen() {
   const [readings, setReadings] = useState<Reading[]>([]);
+  const [selectedSite, setSelectedSite] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
@@ -77,14 +78,19 @@ export default function HistoryScreen() {
     fetchReadings();
   };
 
+  const uniqueSites = Array.from(new Set(readings.map(r => r.meters?.sites?.name).filter(Boolean))) as string[];
+  const displayedReadings = selectedSite 
+    ? readings.filter(r => r.meters?.sites?.name === selectedSite)
+    : readings;
+
   const downloadCSV = () => {
-    if (readings.length === 0) {
+    if (displayedReadings.length === 0) {
       if (typeof window !== 'undefined') window.alert('ダウンロードするデータがありません。');
       return;
     }
 
     const headers = ['日付', '拠点名', 'メーター名', '使用カテゴリ', 'メーター値(m3)', '使用量(m3)', 'ステータス'];
-    const csvRows = readings.map(r => {
+    const csvRows = displayedReadings.map(r => {
       const date = format(new Date(r.read_at), 'yyyy/MM/dd HH:mm');
       const siteName = r.meters?.sites?.name || '';
       const meterName = r.meters?.name || '';
@@ -103,7 +109,8 @@ export default function HistoryScreen() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `meter_readings_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+      const prefix = selectedSite ? `${selectedSite}_` : 'すべて_';
+      link.setAttribute('download', `${prefix}meter_readings_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -147,18 +154,46 @@ export default function HistoryScreen() {
       </LinearGradient>
 
       <View className="px-6 -mt-4 pb-12">
-        {readings.length === 0 ? (
-          <View className="bg-slate-900 border border-slate-800 rounded-3xl p-12 items-center mt-8">
+        {uniqueSites.length > 0 && (
+          <View className="mt-8 mb-4">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+              <TouchableOpacity
+                onPress={() => setSelectedSite(null)}
+                className={`mr-3 px-5 py-2 rounded-full border ${
+                  selectedSite === null 
+                    ? 'bg-blue-600 border-blue-500 shadow-md shadow-blue-500/20' 
+                    : 'bg-slate-900 border-slate-700'
+                }`}
+              >
+                <Text className={`font-bold ${selectedSite === null ? 'text-white' : 'text-slate-400'}`}>すべて</Text>
+              </TouchableOpacity>
+              
+              {uniqueSites.map(site => (
+                <TouchableOpacity
+                  key={site}
+                  onPress={() => setSelectedSite(site)}
+                  className={`mr-3 px-5 py-2 rounded-full border ${
+                    selectedSite === site 
+                      ? 'bg-blue-600 border-blue-500 shadow-md shadow-blue-500/20' 
+                      : 'bg-slate-900 border-slate-700'
+                  }`}
+                >
+                  <Text className={`font-bold ${selectedSite === site ? 'text-white' : 'text-slate-400'}`}>{site}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {displayedReadings.length === 0 ? (
+          <View className="bg-slate-900 border border-slate-800 rounded-3xl p-12 items-center mt-4">
             <Ionicons name="time-outline" size={48} color="#475569" />
             <Text className="text-slate-400 text-lg mt-4 text-center">
-              まだ記録がありません
-            </Text>
-            <Text className="text-slate-500 text-sm mt-2 text-center">
-              メーターを撮影して最初の記録を残しましょう
+              表示する記録がありません
             </Text>
           </View>
         ) : (
-          readings.map((reading) => (
+          displayedReadings.map((reading) => (
             <TouchableOpacity
               key={reading.id}
               onPress={() => router.push(`/history/${reading.id}`)}
