@@ -15,7 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const showAlert = (title: string, message: string) => {
     if (typeof window !== 'undefined') {
@@ -44,8 +46,8 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = async () => {
-    if (!email || !password) {
-      showAlert('入力エラー', 'メールアドレスとパスワードを入力してください。');
+    if (!email || !password || !displayName) {
+      showAlert('入力エラー', 'お名前、メールアドレス、パスワードをすべて入力してください。');
       return;
     }
 
@@ -55,7 +57,7 @@ export default function LoginScreen() {
       password,
       options: {
         data: {
-          display_name: email.split('@')[0],
+          display_name: displayName,
         },
       },
     });
@@ -94,7 +96,22 @@ export default function LoginScreen() {
         </View>
 
         <View className="space-y-4">
-          <View>
+          {isSignUp && (
+            <View>
+              <Text className="text-slate-300 text-sm font-medium mb-2 ml-1">
+                お名前（表示名）
+              </Text>
+              <TextInput
+                className="bg-slate-800/50 border border-slate-700 text-white rounded-2xl px-5 py-4 text-lg"
+                placeholder="山田 太郎"
+                placeholderTextColor="#64748b"
+                value={displayName}
+                onChangeText={setDisplayName}
+              />
+            </View>
+          )}
+
+          <View className={isSignUp ? "mt-4" : ""}>
             <Text className="text-slate-300 text-sm font-medium mb-2 ml-1">
               メールアドレス
             </Text>
@@ -124,7 +141,7 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={handleLogin}
+            onPress={isSignUp ? handleSignUp : handleLogin}
             disabled={loading}
             className={`mt-8 bg-blue-600 py-4 rounded-2xl shadow-lg shadow-blue-600/30 items-center ${
               loading ? 'opacity-70' : ''
@@ -133,16 +150,22 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-white text-xl font-bold">ログイン</Text>
+              <Text className="text-white text-xl font-bold">
+                {isSignUp ? 'アカウントを作成' : 'ログイン'}
+              </Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleSignUp}
+            onPress={() => setIsSignUp(!isSignUp)}
             className="mt-4 py-2 items-center"
           >
             <Text className="text-slate-400 text-sm">
-              アカウントをお持ちでない場合は <Text className="text-blue-400 font-bold">新規登録</Text>
+              {isSignUp ? (
+                <Text>すでにアカウントをお持ちの方は <Text className="text-blue-400 font-bold">こちら</Text></Text>
+              ) : (
+                <Text>アカウントをお持ちでない場合は <Text className="text-blue-400 font-bold">新規登録</Text></Text>
+              )}
             </Text>
           </TouchableOpacity>
         </View>
