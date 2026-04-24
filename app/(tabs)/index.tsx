@@ -129,9 +129,6 @@ export default function HomeScreen() {
                   <Text className="text-white text-xl font-bold mb-1">
                     {site.name}
                   </Text>
-                  <Text className="text-slate-500 text-sm" numberOfLines={1}>
-                    {site.address || '住所未登録'}
-                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#475569" />
               </View>
